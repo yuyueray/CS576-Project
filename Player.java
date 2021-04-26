@@ -1,37 +1,41 @@
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Player{
 
   public static void main(String[] args){
-    //Add the Video player to this frame and pack
     try {
-      String video1 = args[0], video2 = args[1], audio = args[2];
-//
-//      File folder = new File("");
-//      for (final File fileEntry : folder.listFiles()) {
-//        if (fileEntry.isDirectory()) {
-//          listFilesForFolder(fileEntry);
-//        } else {
-//          System.out.println(fileEntry.getName());
-//        }
-//      }
+      String video = args[0], audio = args[1];
+      ArrayList<Integer> index = new ArrayList<Integer>();
 
-      File file1 = new File(video1);
-      File file2 = new File(video2);
+      for(int i=0; i<16120; i++){
+        index.add(i);
+      }
+
+      File folder = new File(video);
+      int j = 0;
+      File fa[] = folder.listFiles();
+      Arrays.sort(fa, (f1, f2)-> {
+        int n1 = Integer.parseInt(f1.getName().replaceAll("[^0-9]", ""));
+        int n2 = Integer.parseInt(f2.getName().replaceAll("[^0-9]", ""));
+        return n1 - n2;
+      });
       ArrayList<RandomAccessFile> files = new ArrayList<>();
-      RandomAccessFile rf1 = new RandomAccessFile(file1, "r");
-      RandomAccessFile rf2 = new RandomAccessFile(file2, "r");
-      files.add(rf1);
-      files.add(rf2);
+      for(int i=0; i<fa.length; i++){
+        File f = fa[i];
+        if(i == index.get(j)){
+          ++j;
+          RandomAccessFile rf = new RandomAccessFile(f, "r");
+          files.add(rf);
+        }
+      }
 
-      FileInputStream inputStream = new FileInputStream(audio);
       try {
         PlaySoundClip playSoundClip = new PlaySoundClip(audio);
-        VideoPlayer player = new VideoPlayer(files, playSoundClip);
+        VideoPlayer player = new VideoPlayer(video, playSoundClip);
 
         Thread t1 = new Thread(playSoundClip);
         Thread t2 = new Thread(player);
@@ -46,6 +50,5 @@ public class Player{
     }
 
   }
-
 
 }

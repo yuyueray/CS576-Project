@@ -2,7 +2,6 @@ import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -14,14 +13,13 @@ import javax.swing.border.EmptyBorder;
 
 public class VideoPlayer extends JFrame implements ActionListener, Runnable {
 
-  private static final int WIDTH = 512;
-  private static final int HEIGHT = 512;
+  private static final int WIDTH = 320;
+  private static final int HEIGHT = 180;
   private static final int FPS = 30;
 
   private JButton playButton, stopButton, pauseButton;
   private JPanel panel, videoPanel, buttonPanel;
   private ImageComponent iComp;
-  private byte[] bytes;
   private BufferedImage img;
   private volatile boolean flag = true;
   private RandomAccessFile raf;
@@ -33,13 +31,11 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
     play();
   }
 
-  public VideoPlayer(ArrayList<RandomAccessFile> files, PlaySoundClip playSoundClip) {
+  public VideoPlayer(String video, PlaySoundClip playSoundClip) {
     this.pSound = playSoundClip;
     this.files = files;
     img = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
     long len = WIDTH * HEIGHT * 3;
-    bytes = new byte[(int) len];
-    System.out.println(this.pSound);
 
     panel = new JPanel();
     videoPanel = new JPanel();
@@ -78,7 +74,7 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
     int length = files.size();
 
     while(beginFrame<Math.round(pSound.getPosition()/soundSample)) {
-      readImageRGB(WIDTH, HEIGHT, beginFrame % 2, img);
+      readImageRGB(WIDTH, HEIGHT, beginFrame, img);
       iComp.setImg(img);
       videoPanel.add(iComp);
       videoPanel.repaint();
@@ -87,18 +83,17 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
     }
 
     curFrame = beginFrame;
-    //Video ahead of audio, wait for audio to catch up
+    //video ahead
     while(beginFrame > Math.round(pSound.getPosition()/soundSample));
 
-    for (; curFrame < 30000; curFrame++) {
+    for (; curFrame < length; curFrame++) {
       while(!flag);
 
-      // Video ahead of audio, wait for audio to catch up
+      // video ahead
       while(curFrame>Math.round(pSound.getPosition()/soundSample));
 
-      // Audio ahead of video, roll video forward to catch up
       while(curFrame<Math.round(pSound.getPosition()/soundSample)) {
-        readImageRGB(WIDTH, HEIGHT, curFrame % 2, img);
+        readImageRGB(WIDTH, HEIGHT, curFrame, img);
         iComp.setImg(img);
         videoPanel.add(iComp);
         videoPanel.repaint();
@@ -107,7 +102,7 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
       }
 
       long t1 = System.currentTimeMillis();
-      readImageRGB(WIDTH, HEIGHT, curFrame % 2, img);
+      readImageRGB(WIDTH, HEIGHT, curFrame, img);
       iComp.setImg(img);
       videoPanel.add(iComp);
       videoPanel.repaint();
@@ -142,6 +137,7 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
 
           int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
           img.setRGB(x,y,pix);
+
           ind++;
         }
       }
