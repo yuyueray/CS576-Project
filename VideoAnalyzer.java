@@ -93,52 +93,63 @@ public class VideoAnalyzer {
 		frame.setVisible(true);
 	}
 
-	public double getDiffOfCurrBlock(int idxRow, int idxCol, byte[] currImgBytes, byte[] otherImgBytes) {
-		double minDiff = Double.MAX_VALUE;
+	public double[] getDiffAndMotionOfCurrBlock(int idxRow, int idxCol, byte[] currImgBytes, byte[] otherImgBytes) {
+		// double minDiff = Double.MAX_VALUE;
 		double currDiff = 0;
-		
+		// double motion = 0;
+		double[] res = {Double.MAX_VALUE, 0}; // {min diff. motion}
 		// determine the indices of the upper left corner of the current macroblock
 		int iCurrStart = idxRow * macroBlockSize;
 		int jCurrStart = idxCol * macroBlockSize;
-
+		//System.out.println("!!!new block!!!");
+		//System.out.println(iCurrStart + "," + jCurrStart);
 		for (int xShift=-searchSize; xShift<=searchSize; xShift++) {
 			for (int yShift=-searchSize; yShift<=searchSize; yShift++) {
 				
+				//System.out.println("here1: "+xShift+ ", "+yShift);
 				// determine the indices of the upper left corner of the candidate block
 				int iOtherStart = iCurrStart+xShift;
-				int jOtherStart = iCurrStart+yShift;	
-
+				int jOtherStart = iCurrStart+yShift;
+				
 				// if search range exceeds the boundary, skip the current loop
 				if (iOtherStart < 0 || jOtherStart < 0 || iOtherStart > height - macroBlockSize || jOtherStart > width - macroBlockSize) {
 					continue;
 				}
 				
 				// compute the difference of the current macroblock to the candidate block
+				currDiff = 0;
 				for (int i=0; i<macroBlockSize; i++) {
 					for (int j=0; j<macroBlockSize; j++) {
 						int rCurr = Byte.toUnsignedInt(currImgBytes[(iCurrStart + i) * width + (jCurrStart + j)]); 
 						int gCurr = Byte.toUnsignedInt(currImgBytes[(iCurrStart + i) * width + (jCurrStart + j) + height*width]); 
 						int bCurr = Byte.toUnsignedInt(currImgBytes[(iCurrStart + i) * width + (jCurrStart + j) + height*width*2]); 
 
-						int rOther = Byte.toUnsignedInt(otherImgBytes[(iCurrStart + i) * width + (jCurrStart + j)]); 
-						int gOther = Byte.toUnsignedInt(otherImgBytes[(iCurrStart + i) * width + (jCurrStart + j) + height*width]); 
-						int bOther = Byte.toUnsignedInt(otherImgBytes[(iCurrStart + i) * width + (jCurrStart + j) + height*width*2]); 
+						int rOther = Byte.toUnsignedInt(otherImgBytes[(iOtherStart + i) * width + (jOtherStart + j)]); 
+						int gOther = Byte.toUnsignedInt(otherImgBytes[(iOtherStart + i) * width + (jOtherStart + j) + height*width]); 
+						int bOther = Byte.toUnsignedInt(otherImgBytes[(iOtherStart + i) * width + (jOtherStart + j) + height*width*2]); 
 
 						currDiff += Math.sqrt((rCurr-rOther) * (rCurr-rOther) + (gCurr-gOther) * (gCurr-gOther) + (bCurr-bOther) * (bCurr-bOther));
 					}
 				}
-
-				// update the value of mininum diff
-				minDiff = Math.min(minDiff, currDiff); 
+				//System.out.println("  "+iOtherStart + "," + jOtherStart+","+currDiff);
+				// update the value of min diff and the corresponding motion
+				if (res[0] > currDiff) {
+					res[0] = currDiff; // update min diff
+					res[1] = Math.sqrt((xShift * xShift) + (yShift * yShift)); // update motion
+					// if (xShift != -10 || yShift != -10) {
+					// 	System.out.println("here2: "+xShift+", "+yShift);
+					// }
+				}
 			}
 		}
 		
-		return minDiff;
+		return res;
 	};
 
-	public double getDiff(String currImgPath, String otherImgPath) {
+	public double[] getDiffAndMotion(String currImgPath, String otherImgPath) {
 		
 		double sumDiff = 0;
+		double sumMotion = 0;
 		try
 		{
 			// read current and other images into memory (as byte[])
@@ -163,7 +174,9 @@ public class VideoAnalyzer {
 
 			for (int i=0; i<numBlocksPerCol; i++) {
 				for (int j=0; j<numBlocksPerRow; j++) {
-					sumDiff += getDiffOfCurrBlock(i, j, currImgBytes, otherImgBytes);
+					double[] res = getDiffAndMotionOfCurrBlock(i, j, currImgBytes, otherImgBytes);
+					sumDiff += res[0];
+					sumMotion += res[1];
 				}
 			}
 		}
@@ -175,7 +188,9 @@ public class VideoAnalyzer {
 		{
 			e.printStackTrace();
 		}
-		return sumDiff;
+
+		double[] res = {sumDiff, sumMotion};
+		return res;
 	}
 
 	public static void main(String[] args) {
@@ -185,17 +200,66 @@ public class VideoAnalyzer {
 		
 		VideoAnalyzer ren = new VideoAnalyzer();
 		
+		int start_idx = 0;
+		int end_idx = 0;
+		int threshold = 4000000; // 4,000,000 is a very good value for threshold
+		int min_shot_length = 30; // shots shorter than 1s will be ignored
+		int backtracking_rate = 2; // rate of backtracking after detecting a new shot
+		double avgMotion = 0;
 		String rgbFileDir = "../soccer";
-		for (int i=6000; i<7000; i++) {
+		for (int i=min_shot_length; i<16200; i+=min_shot_length) {
 			String currImagePath = rgbFileDir + "/frame" + i + ".rgb";
-			String prevImagePath = rgbFileDir + "/frame" + (i-1) + ".rgb";
+			String prevImagePath = rgbFileDir + "/frame" + (i-min_shot_length) + ".rgb";
 
-			double diff = ren.getDiff(currImagePath, prevImagePath);
+			double diff = ren.getDiffAndMotion(currImagePath, prevImagePath)[0];
 
-			if (diff > 4000000) { // 4,000,000 is a very good value for threshold
-				System.out.println(i + ": "+ diff);
+			findNewShot:
+			if (diff > threshold) { 
+
+				// backtrack to find the first frame of the current shot
+				int curr_idx = i;
+				avgMotion = 0;
+				int num_backtracks = 0;
+				currImagePath = rgbFileDir + "/frame" + curr_idx + ".rgb";
+				prevImagePath = rgbFileDir + "/frame" + (curr_idx - backtracking_rate) + ".rgb";
+
+				double backtrackDiff = ren.getDiffAndMotion(currImagePath, prevImagePath)[0];
+				while (backtrackDiff <= threshold) {
+					// update current index
+					curr_idx -= backtracking_rate;
+					
+					// avoid wasting time in case a very long shot occurs
+					if ((num_backtracks += backtracking_rate) == min_shot_length) {
+						break findNewShot;
+					}
+
+					currImagePath = rgbFileDir + "/frame" + curr_idx + ".rgb";
+					prevImagePath = rgbFileDir + "/frame" + (curr_idx-backtracking_rate) + ".rgb";
+
+					backtrackDiff = ren.getDiffAndMotion(currImagePath, prevImagePath)[0];
+				}
+
+				// update end index of the current shot
+				end_idx = curr_idx - 2;
+				
+				compute the avg. motion of the current shot, incrementing by 10 each time
+				for (int j = start_idx + 10; j <= end_idx; j += 10) {
+					currImagePath = rgbFileDir + "/frame" + j + ".rgb";
+					prevImagePath = rgbFileDir + "/frame" + (j - 10) + ".rgb";
+					avgMotion += ren.getDiffAndMotion(currImagePath, prevImagePath)[1];
+				}
+
+				if ((end_idx - start_idx) / 10 != 0) {
+					avgMotion /= (double)((end_idx - start_idx) / 10);
+				}
+				
+				System.out.println("frame " + curr_idx + ":: " + "s.f.#: " + start_idx + ", e.f.#: " + end_idx + ", diff: " + backtrackDiff + ", avg. motion: " + avgMotion);
+				start_idx = curr_idx;
+				// starting frame #, ending frame #, motion rate, color variance
 			}
 		}
+
+		
 
 		now = LocalDateTime.now();
    		System.out.println(dtf.format(now));
