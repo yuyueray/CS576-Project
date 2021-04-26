@@ -11,10 +11,6 @@ public class Player{
       String video = args[0], audio = args[1];
       ArrayList<Integer> index = new ArrayList<Integer>();
 
-      for(int i=0; i<16120; i++){
-        index.add(i);
-      }
-
       File folder = new File(video);
       int j = 0;
       File fa[] = folder.listFiles();
