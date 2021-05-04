@@ -31,7 +31,7 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
     play();
   }
 
-  public VideoPlayer(String video, PlaySoundClip playSoundClip) {
+  public VideoPlayer(ArrayList<RandomAccessFile> files, PlaySoundClip playSoundClip) {
     this.pSound = playSoundClip;
     this.files = files;
     img = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);

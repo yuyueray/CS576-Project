@@ -11,6 +11,10 @@ public class Player{
       String video = args[0], audio = args[1];
       ArrayList<Integer> index = new ArrayList<Integer>();
 
+      for(int i=0; i<9000; i++){
+        index.add(i);
+      }
+
       File folder = new File(video);
       int j = 0;
       File fa[] = folder.listFiles();
@@ -22,7 +26,7 @@ public class Player{
       ArrayList<RandomAccessFile> files = new ArrayList<>();
       for(int i=0; i<fa.length; i++){
         File f = fa[i];
-        if(i == index.get(j)){
+        if(j < index.size() && i == index.get(j)){
           ++j;
           RandomAccessFile rf = new RandomAccessFile(f, "r");
           files.add(rf);
@@ -31,7 +35,7 @@ public class Player{
 
       try {
         PlaySoundClip playSoundClip = new PlaySoundClip(audio);
-        VideoPlayer player = new VideoPlayer(video, playSoundClip);
+        VideoPlayer player = new VideoPlayer(files, playSoundClip);
 
         Thread t1 = new Thread(playSoundClip);
         Thread t2 = new Thread(player);
