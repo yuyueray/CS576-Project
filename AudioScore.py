@@ -3,11 +3,17 @@
 from scipy.io import wavfile
 import numpy as np    
 
+# import time
 # import matplotlib.pyplot as plt
+
+# to run this file in terminal
+# >> python AudioScore.py
+# >> filePath
 
 # returns the score[0-10] for a wav file by seconds  
 # the result is saved to filePath_audio_score.txt, one row is one score value 
 def getAudioScore(filePath):
+    # print(time.ctime(time.time()))
     samplerate, data = wavfile.read(filePath)
     monoSound = np.array([l if l >= 0 else 0 for l, r in data])
     sampleNum = len(monoSound)
@@ -27,8 +33,16 @@ def getAudioScore(filePath):
             curScore = 0
         score.append(curScore)
     del score[0]
-    with open(filePath+ '_audio_score.txt', 'w+') as audioScoreFile:
+    scoreFile = filePath + '_audio_score.txt'
+    with open(scoreFile, 'w+') as audioScoreFile:
         for s in score:
             audioScoreFile.write('%s\n' % s)
+    print('AudioScore is saved at: ' + scoreFile)
+    return
 
-# getAudioScore('cartoon1.wav')
+# getAudioScore('/Users/ray/Desktop/CS576/project_dataset/audio/concert.wav')
+
+if __name__ == '__main__':
+    fPath = str(input())
+    print('The path is: ' + fPath)
+    getAudioScore(fPath)

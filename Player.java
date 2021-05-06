@@ -29,10 +29,21 @@ public class Player{
         if(j < index.size() && i == index.get(j)){
           ++j;
           RandomAccessFile rf = new RandomAccessFile(f, "r");
-          files.add(rf);
+          files.add(rf);   
         }
       }
-
+      // read audio score
+      String AudioPath = "";
+      BufferedReader bufReader = new BufferedReader(new FileReader(AudioPath));
+      ArrayList<String> audioScore = new ArrayList<>();
+  
+      String line = bufReader.readLine();
+      while (line != null) {
+        audioScore.add(line);
+        line = bufReader.readLine();
+      }
+      bufReader.close();
+      
       try {
         PlaySoundClip playSoundClip = new PlaySoundClip(audio);
         VideoPlayer player = new VideoPlayer(files, playSoundClip);
