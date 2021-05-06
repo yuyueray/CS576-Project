@@ -35,15 +35,15 @@ public class Player{
       // read audio score
       String AudioPath = "";
       BufferedReader bufReader = new BufferedReader(new FileReader(AudioPath));
-      ArrayList<String> audioScore = new ArrayList<>();
+      ArrayList<Integer> audioScore = new ArrayList<>();
   
       String line = bufReader.readLine();
       while (line != null) {
-        audioScore.add(line);
+        audioScore.add(Integer.parseInt(line));
         line = bufReader.readLine();
       }
       bufReader.close();
-      
+
       try {
         PlaySoundClip playSoundClip = new PlaySoundClip(audio);
         VideoPlayer player = new VideoPlayer(files, playSoundClip);
