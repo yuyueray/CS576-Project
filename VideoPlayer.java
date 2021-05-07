@@ -19,34 +19,36 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
 
   private JButton playButton, stopButton, pauseButton;
   private JPanel panel, videoPanel, buttonPanel;
-  private ImageComponent iComp;
+  private ImageComponent iComp = new ImageComponent();
   private BufferedImage img;
   private volatile boolean flag = true;
   private RandomAccessFile raf;
   private PlaySoundClip pSound;
   private ArrayList<RandomAccessFile> files;
-  private int status, curFrame = 0;
+  private ArrayList<Integer> indices;
+  private int status, curFrame, curIdx = 0;
 
   public void run(){
     play();
   }
 
-  public VideoPlayer(ArrayList<RandomAccessFile> files, PlaySoundClip playSoundClip) {
+  public VideoPlayer(ArrayList<RandomAccessFile> files, ArrayList<Integer> indices, PlaySoundClip playSoundClip) {
     this.pSound = playSoundClip;
     this.files = files;
+    this.indices = indices;
     img = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
     long len = WIDTH * HEIGHT * 3;
 
     panel = new JPanel();
     videoPanel = new JPanel();
     buttonPanel = new JPanel();
-    panel.setBorder(new EmptyBorder(5, 5, 5, 5));
+    panel.setBorder(new EmptyBorder(5, 5, 5, 5)); // top, left, bot, right
     panel.setLayout(new BorderLayout(0, 0));
 
     this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     this.setVisible(true);
     this.setContentPane(panel);
-    this.setSize(600, 400);
+    this.setSize(350,300);
 
     panel.add(videoPanel, BorderLayout.CENTER);
     videoPanel.setLayout(new BorderLayout(0, 0));
@@ -66,51 +68,71 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
   }
 
   public void play(){
-    iComp = new ImageComponent();
+    System.out.println("Entered play()");
+    double sampleRate = pSound.getSampleRate();
+    double numSamplesPerFrame = sampleRate/ FPS;
 
-    double soundSample = pSound.getSampleRate()/ FPS;
-
-    int beginFrame = 0;
+    int curIdx = 0;
     int length = files.size();
+    System.out.println("file size is "+length);
+    // // audio precedes video
+    // while(beginFrame<Math.round(pSound.getPosition()/numSamplesPerFrame)) {
+    //   readImageRGB(WIDTH, HEIGHT, beginFrame, img);
+    //   iComp.setImg(img);
+    //   videoPanel.add(iComp);
+    //   videoPanel.repaint();
+    //   videoPanel.setVisible(true);
+    //   beginFrame++;
+    // }
 
-    while(beginFrame<Math.round(pSound.getPosition()/soundSample)) {
-      readImageRGB(WIDTH, HEIGHT, beginFrame, img);
-      iComp.setImg(img);
-      videoPanel.add(iComp);
-      videoPanel.repaint();
-      videoPanel.setVisible(true);
-      beginFrame++;
-    }
-
-    curFrame = beginFrame;
-    //video ahead
-    while(beginFrame > Math.round(pSound.getPosition()/soundSample));
-
-    for (; curFrame < length; curFrame++) {
+    // //jumping to a new shot
+    // while(beginFrame > Math.round(pSound.getPosition()/numSamplesPerFrame));
+    
+    curFrame = indices.get(curIdx);
+    playVideo:
+    for (; curIdx < length; curIdx++) {
+      System.out.println("curFrame is "+curFrame);
       while(!flag);
 
-      // video ahead
-      while(curFrame>Math.round(pSound.getPosition()/soundSample));
-
-      while(curFrame<Math.round(pSound.getPosition()/soundSample)) {
-        readImageRGB(WIDTH, HEIGHT, curFrame, img);
+      // audio precedes video
+      while(curFrame<Math.round(pSound.getPosition()/numSamplesPerFrame)) {
+        System.out.println("sound precedes: "+curIdx);
+        readImageRGB(WIDTH, HEIGHT, curIdx, img);
         iComp.setImg(img);
         videoPanel.add(iComp);
         videoPanel.repaint();
         videoPanel.setVisible(true);
-        curFrame++;
+        if (++curIdx == length) break playVideo;
+        curFrame = indices.get(curIdx);
       }
 
+      //jumping to a new shot
+      try {
+        if (curFrame>Math.round(pSound.getPosition()/numSamplesPerFrame) + 10) {
+          pSound.jump((long)Math.floor(curFrame / FPS * 1000000));
+        }
+      }
+      catch (Exception e) {
+        return;
+      }
+
+      // video precedes audio
+      while(curFrame>Math.round(pSound.getPosition()/numSamplesPerFrame)) {};
+
+
       long t1 = System.currentTimeMillis();
-      readImageRGB(WIDTH, HEIGHT, curFrame, img);
+      readImageRGB(WIDTH, HEIGHT, curIdx, img);
       iComp.setImg(img);
       videoPanel.add(iComp);
       videoPanel.repaint();
       videoPanel.setVisible(true);
       while(System.currentTimeMillis() - t1 < 33.3333);
-
     }
-
+    
+    curIdx = 0;
+    curFrame = indices.get(curIdx);
+    pSound.pause();
+    status = 2;
   }
 
   private void readImageRGB(int width, int height, int index, BufferedImage img)
@@ -160,21 +182,23 @@ public class VideoPlayer extends JFrame implements ActionListener, Runnable {
         flag = false;
         pSound.pause();
         status = 1;
-
       } else if (e.getSource() == playButton) {
         flag = true;
         if(status == 1) {
+          status = 0;
           pSound.resumeAudio();
-        }else if(status == 2){
+        } else if(status == 2){
+          status = 0;
           pSound.restart();
+          play();
         }
-        status = 0;
-      } else {
-        curFrame = 0;
+        
+      } else if (e.getSource() == stopButton) {
+        flag = false;
         pSound.pause();
         status = 2;
       }
-    }catch(Exception e1){
+    } catch(Exception e1){
       e1.printStackTrace();
     }
   }
