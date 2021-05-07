@@ -5,6 +5,8 @@ import javax.swing.*;
 import java.lang.*;
 import java.time.format.DateTimeFormatter;  
 import java.time.LocalDateTime; 
+import java.io.File;
+import java.io.IOException;
 
 public class VideoAnalyzer {
 
@@ -294,9 +296,30 @@ public class VideoAnalyzer {
 	}
 
 	public static void main(String[] args) {
-		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
-   		LocalDateTime now = LocalDateTime.now();  
-   		System.out.println(dtf.format(now));  
+		String rgbFileDir = args[0]; //"project_dataset_2/frames_rgb_2/steel" 
+		String[] rgbFileDirSegs = args[0].split("/");
+		String videoName = rgbFileDirSegs[rgbFileDirSegs.length-1];
+		String fileName = "scores/" + videoName + "_video_score.txt";
+
+		try {
+      		File myObj = new File(fileName);
+      		if (myObj.createNewFile()) {
+        		System.out.println("File created: " + myObj.getName());
+      		} else {
+        		System.out.println("File already exists: " + myObj.getName());
+     		}
+			
+    	} catch (IOException e) {
+      		System.out.println("An error occurred.");
+      		e.printStackTrace();
+    	}
+		
+		
+
+		// DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
+   		// LocalDateTime now = LocalDateTime.now();  
+		long start = System.currentTimeMillis() / 1000;
+   		System.out.println("Analyzing video: " + videoName);  
 
 		VideoAnalyzer ren = new VideoAnalyzer();
 
@@ -315,35 +338,46 @@ public class VideoAnalyzer {
 			frameInfo[i][0] = -1;
 		}
 
-		String rgbFileDir = "../../../../project_dataset_2/frames_rgb_2/steel"; // ../../../../project_dataset_2/frames_rgb_2/concert_2
+		
 		int prevFrameIdx = 0;
-		for (int i=1; i<16200; i++) {
-			String currImagePath = rgbFileDir + "/frame" + i + ".rgb";
-			String prevImagePath = rgbFileDir + "/frame" + (i-1) + ".rgb";
+		
 
-			double diff = ren.getDiff(currImagePath, prevImagePath);
-			if (diff > 4000000 && i-prevFrameIdx >= 15) { // diff is large enough && shot is longer than 0.5 seconds
+		try {
+			BufferedWriter outFile = new BufferedWriter(new FileWriter(fileName));
 
-				frameInfo[i][0] = i;
-				frameInfo[i][1] = (int)diff;
-				frameInfo[prevFrameIdx][2] = (int)(ren.getMotion(rgbFileDir, prevFrameIdx, i)); // double to int
-				frameInfo[prevFrameIdx][3] = (int)(ren.getColorfulness(rgbFileDir, prevFrameIdx, i));
-				frameInfo[prevFrameIdx][4] = i - prevFrameIdx;
 
-				System.out.println(prevFrameIdx + ": " + diff + ", " + frameInfo[prevFrameIdx][2] + ", " + frameInfo[prevFrameIdx][3] + ", " + frameInfo[prevFrameIdx][4]);
+			for (int i=1; i<16200; i++) {
+				String currImagePath = rgbFileDir + "/frame" + i + ".rgb";
+				String prevImagePath = rgbFileDir + "/frame" + (i-1) + ".rgb";
 
-				prevFrameIdx = i;
+				double diff = ren.getDiff(currImagePath, prevImagePath);
+				if (diff > 4000000 && i-prevFrameIdx >= 15) { // diff is large enough && shot is longer than 0.5 seconds
+
+					frameInfo[i][0] = i;
+					frameInfo[i][1] = (int)diff;
+					frameInfo[prevFrameIdx][2] = (int)(ren.getMotion(rgbFileDir, prevFrameIdx, i)); // double to int
+					frameInfo[prevFrameIdx][3] = (int)(ren.getColorfulness(rgbFileDir, prevFrameIdx, i));
+					frameInfo[prevFrameIdx][4] = i - prevFrameIdx;
+		
+					outFile.write(prevFrameIdx + " " + frameInfo[i] + " " + frameInfo[prevFrameIdx][2] + " " + frameInfo[prevFrameIdx][3] + " " + frameInfo[prevFrameIdx][4]);
+					System.out.println("New shot detected: frame #" + prevFrameIdx + ", length: " + frameInfo[prevFrameIdx][4] + ", difference: " + frameInfo[i][1] + ", movement: " + frameInfo[prevFrameIdx][2] + ", colorfulness: " + frameInfo[prevFrameIdx][3]);
+
+					prevFrameIdx = i;
+				}
 			}
+
+			outFile.close();
 		}
+		catch (IOException e) {}
+
 
 		frameInfo[prevFrameIdx][2] = (int)(ren.getMotion(rgbFileDir, prevFrameIdx, 16200));
 		frameInfo[prevFrameIdx][3] = (int)(ren.getColorfulness(rgbFileDir, prevFrameIdx, 16200));
 		frameInfo[prevFrameIdx][4] = 16200 - prevFrameIdx;
-
-		//System.out.println("Array length is: "+frameInfo.length+" | "+frameInfoIdx);
-
-		now = LocalDateTime.now();
-   		System.out.println(dtf.format(now));
+		
+		// now = LocalDateTime.now();
+		long end = System.currentTimeMillis() / 1000;
+   		System.out.println("Analyzing completed in " + (double)(end - start) / 60.0 + " minutes.");
 
 	}
 
